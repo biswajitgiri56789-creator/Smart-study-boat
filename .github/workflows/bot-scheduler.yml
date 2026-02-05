@@ -2,92 +2,138 @@ name: Smart Study Bot
 
 on:
   schedule:
-    # Bangladesh Time (UTC+6) converted to UTC
-    # 8:00 AM BDT = 2:00 AM UTC
-    # 10:00 AM BDT = 4:00 AM UTC
-    # 12:00 PM BDT = 6:00 AM UTC
-    # 3:00 PM BDT = 9:00 AM UTC
-    # 5:00 PM BDT = 11:00 AM UTC
-    # 7:00 PM BDT = 1:00 PM UTC
-    # 9:00 PM BDT = 3:00 PM UTC
+    # Bangladesh Time (UTC+6) to UTC:
+    # 8:00 AM BD = 2:00 AM UTC
+    # 10:00 AM BD = 4:00 AM UTC
+    # 12:00 PM BD = 6:00 AM UTC
+    # 3:00 PM BD = 9:00 AM UTC
+    # 5:00 PM BD = 11:00 AM UTC
+    # 7:00 PM BD = 1:00 PM UTC
+    # 9:00 PM BD = 3:00 PM UTC
     
-    - cron: '0 2 * * *'  # 8:00 AM BDT
-    - cron: '0 4 * * *'  # 10:00 AM BDT
-    - cron: '0 6 * * *'  # 12:00 PM BDT
-    - cron: '0 9 * * *'  # 3:00 PM BDT
-    - cron: '0 11 * * *' # 5:00 PM BDT
-    - cron: '0 13 * * *' # 7:00 PM BDT
-    - cron: '0 15 * * *' # 9:00 PM BDT
+    - cron: '0 2 * * *'
+    - cron: '0 4 * * *'
+    - cron: '0 6 * * *'
+    - cron: '0 9 * * *'
+    - cron: '0 11 * * *'
+    - cron: '0 13 * * *'
+    - cron: '0 15 * * *'
   
-  # Manual trigger
   workflow_dispatch:
-    inputs:
-      note:
-        description: 'Manual run'
-        required: false
-        default: 'Test run'
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
     
     steps:
-      # Step 1: Checkout code
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
       
-      # Step 2: Setup Python
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-      
-      # Step 3: Install dependencies
-      - name: Install dependencies
-        run: |
-          pip install python-telegram-bot==20.3
-          pip install requests==2.31.0
-          pip install schedule==1.2.0
-          pip install python-dotenv==1.0.0
-      
-      # Step 4: Setup environment
-      - name: Setup environment
-        run: |
-          echo "BOT_TOKEN=${{ secrets.BOT_TOKEN }}" > .env
-          echo "CHANNEL_ID=@smartstudynotes11" >> .env
-          echo "DEBUG=True" >> .env
-          echo "✅ Environment file created"
-      
-      # Step 5: Create data directory
-      - name: Create directories
-        run: |
-          mkdir -p data
-          echo "✅ Directories created"
-      
-      # Step 6: Run the bot
-      - name: Run Smart Study Bot
-        run: |
-          echo "🚀 Starting Smart Study Bot..."
-          python main.py
-          echo "✅ Bot execution completed"
-      
-      # Step 7: Success message
-      - name: Success notification
-        if: success()
-        run: |
-          echo "🎉 Smart Study Bot ran successfully!"
-          echo "📅 Next run times (BDT):"
-          echo "   - 8:00 AM"
-          echo "   - 10:00 AM"
-          echo "   - 12:00 PM"
-          echo "   - 3:00 PM"
-          echo "   - 5:00 PM"
-          echo "   - 7:00 PM"
-          echo "   - 9:00 PM"
-      
-      # Step 8: Failure message
-      - name: Failure notification
-        if: failure()
-        run: |
-          echo "❌ Smart Study Bot failed!"
-          echo "Please check the logs above for errors."
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install Python packages
+      run: |
+        pip install python-telegram-bot requests
+        
+    - name: Debug - Check if BOT_TOKEN exists
+      run: |
+        if [ -z "${{ secrets.BOT_TOKEN }}" ]; then
+          echo "❌ ERROR: BOT_TOKEN is empty or not set!"
+          echo "Please go to: Settings → Secrets → Actions"
+          echo "Add BOT_TOKEN with your Telegram bot token"
+          exit 1
+        else
+          echo "✅ BOT_TOKEN is set (first 10 chars): ${BOT_TOKEN:0:10}..."
+        fi
+        
+    - name: Create and run simple bot script
+      run: |
+        cat > simple_bot.py << 'EOF'
+import os
+import asyncio
+import telegram
+import logging
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+async def main():
+    # Get token from environment
+    BOT_TOKEN = os.environ.get('BOT_TOKEN')
+    CHANNEL_ID = "@smartstudynotes11"
+    
+    if not BOT_TOKEN:
+        logger.error("❌ BOT_TOKEN not found in environment")
+        print("ERROR: BOT_TOKEN is missing!")
+        return False
+    
+    print(f"✅ BOT_TOKEN found (starts with): {BOT_TOKEN[:10]}...")
+    print(f"✅ CHANNEL_ID: {CHANNEL_ID}")
+    
+    try:
+        # Initialize bot
+        bot = telegram.Bot(token=BOT_TOKEN)
+        
+        # Test connection
+        me = await bot.get_me()
+        print(f"✅ Bot connected: @{me.username}")
+        
+        # Create simple post
+        post = """📚 *Smart Study Notes* 📚
+
+🎓 *Today's Important Questions*
+
+🔬 *Physics:*
+• Newton's Laws of Motion
+
+🧪 *Chemistry:*
+• Chemical Bonding
+
+➗ *Mathematics:*
+• Calculus Basics
+
+🤖 Bot is working perfectly!
+📢 Channel: @smartstudynotes11
+🕒 Time: Now"""
+        
+        # Send to Telegram
+        await bot.send_message(
+            chat_id=CHANNEL_ID,
+            text=post,
+            parse_mode="Markdown"
+        )
+        
+        print("✅ Post sent successfully to Telegram!")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        return False
+
+if __name__ == "__main__":
+    result = asyncio.run(main())
+    if not result:
+        exit(1)
+EOF
+        
+        # Run the bot
+        BOT_TOKEN="${{ secrets.BOT_TOKEN }}" python simple_bot.py
+        
+    - name: Check if successful
+      if: success()
+      run: |
+        echo "🎉 SUCCESS! Bot ran without errors."
+        echo "📢 Check your Telegram channel: @smartstudynotes11"
+        
+    - name: Show error if failed
+      if: failure()
+      run: |
+        echo "❌ FAILED! Check the logs above for details."
+        echo "Common issues:"
+        echo "1. BOT_TOKEN not set in GitHub Secrets"
+        echo "2. Bot is not admin in the channel"
+        echo "3. Channel username is wrong"
