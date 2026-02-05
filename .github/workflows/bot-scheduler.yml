@@ -1,0 +1,60 @@
+name: Smart Study Bot Scheduler
+
+on:
+  schedule:
+    # Bangladesh Time (UTC+6) to UTC:
+    # 8:00 AM BD = 2:00 AM UTC
+    # 10:00 AM BD = 4:00 AM UTC
+    # 12:00 PM BD = 6:00 AM UTC
+    # 3:00 PM BD = 9:00 AM UTC
+    # 5:00 PM BD = 11:00 AM UTC
+    # 7:00 PM BD = 1:00 PM UTC
+    # 9:00 PM BD = 3:00 PM UTC
+    
+    - cron: '0 2 * * *'  # 8:00 AM BD
+    - cron: '0 4 * * *'  # 10:00 AM BD
+    - cron: '0 6 * * *'  # 12:00 PM BD
+    - cron: '0 9 * * *'  # 3:00 PM BD
+    - cron: '0 11 * * *' # 5:00 PM BD
+    - cron: '0 13 * * *' # 7:00 PM BD
+    - cron: '0 15 * * *' # 9:00 PM BD
+  
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        
+    - name: Create environment file
+      run: |
+        echo "BOT_TOKEN=${{ secrets.BOT_TOKEN }}" >> .env
+        echo "CHANNEL_ID=${{ secrets.CHANNEL_ID }}" >> .env
+        echo "DATABASE_URL=sqlite:///data/studybots.db" >> .env
+        
+    - name: Create directories
+      run: |
+        mkdir -p data logs
+        
+    - name: Run Smart Study Bot
+      run: |
+        python main.py
+        
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: bot-logs
+        path: logs/
