@@ -1,237 +1,93 @@
-name: Smart Study Bot Scheduler
+name: Smart Study Bot
 
 on:
   schedule:
-    # Bangladesh Time (UTC+6) to UTC conversion:
-    # 8:00 AM BD = 2:00 AM UTC
-    # 10:00 AM BD = 4:00 AM UTC
-    # 12:00 PM BD = 6:00 AM UTC
-    # 3:00 PM BD = 9:00 AM UTC
-    # 5:00 PM BD = 11:00 AM UTC
-    # 7:00 PM BD = 1:00 PM UTC
-    # 9:00 PM BD = 3:00 PM UTC
+    # Bangladesh Time (UTC+6) converted to UTC
+    # 8:00 AM BDT = 2:00 AM UTC
+    # 10:00 AM BDT = 4:00 AM UTC
+    # 12:00 PM BDT = 6:00 AM UTC
+    # 3:00 PM BDT = 9:00 AM UTC
+    # 5:00 PM BDT = 11:00 AM UTC
+    # 7:00 PM BDT = 1:00 PM UTC
+    # 9:00 PM BDT = 3:00 PM UTC
     
-    - cron: '0 2 * * *'  # 8:00 AM BD Time
-    - cron: '0 4 * * *'  # 10:00 AM BD Time
-    - cron: '0 6 * * *'  # 12:00 PM BD Time
-    - cron: '0 9 * * *'  # 3:00 PM BD Time
-    - cron: '0 11 * * *' # 5:00 PM BD Time
-    - cron: '0 13 * * *' # 7:00 PM BD Time
-    - cron: '0 15 * * *' # 9:00 PM BD Time
+    - cron: '0 2 * * *'  # 8:00 AM BDT
+    - cron: '0 4 * * *'  # 10:00 AM BDT
+    - cron: '0 6 * * *'  # 12:00 PM BDT
+    - cron: '0 9 * * *'  # 3:00 PM BDT
+    - cron: '0 11 * * *' # 5:00 PM BDT
+    - cron: '0 13 * * *' # 7:00 PM BDT
+    - cron: '0 15 * * *' # 9:00 PM BDT
   
-  workflow_dispatch:  # Manual trigger
+  # Manual trigger
+  workflow_dispatch:
     inputs:
-      time:
-        description: 'Select run time (BDT)'
+      note:
+        description: 'Manual run'
         required: false
-        default: 'now'
-        type: choice
-        options:
-        - '8:00 AM'
-        - '10:00 AM'
-        - '12:00 PM'
-        - '3:00 PM'
-        - '5:00 PM'
-        - '7:00 PM'
-        - '9:00 PM'
+        default: 'Test run'
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      # Step 1: Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
       
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        
-    - name: Create environment file
-      run: |
-        echo "BOT_TOKEN=${{ secrets.BOT_TOKEN }}" >> .env
-        echo "CHANNEL_ID=${{ secrets.CHANNEL_ID }}" >> .env
-        echo "DATABASE_URL=sqlite:///data/studybots.db" >> .env
-        echo "LOG_LEVEL=INFO" >> .env
-        
-    - name: Create directories
-      run: |
-        mkdir -p data logs
-        
-    - name: Initialize database
-      run: |
-        python -c "
-import sqlite3
-conn = sqlite3.connect('data/studybots.db')
-cursor = conn.cursor()
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS questions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    class TEXT NOT NULL,
-    subject TEXT NOT NULL,
-    question TEXT NOT NULL,
-    importance TEXT DEFAULT 'medium',
-    marks INTEGER DEFAULT 5,
-    chapter TEXT,
-    posted_count INTEGER DEFAULT 0,
-    last_posted DATE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(class, subject, question)
-)
-''')
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS posted_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    question_id INTEGER NOT NULL,
-    post_date DATE NOT NULL,
-    post_time TIME NOT NULL,
-    FOREIGN KEY (question_id) REFERENCES questions(id)
-)
-''')
-conn.commit()
-conn.close()
-print('Database initialized')
-"
-        
-    - name: Add sample questions
-      run: |
-        python -c "
-import sqlite3
-import json
-
-conn = sqlite3.connect('data/studybots.db')
-cursor = conn.cursor()
-
-sample_questions = [
-    ('class_11', 'physics', 'নিউটনের গতির সূত্রগুলো বর্ণনা করুন', 'very_high', 10, 'বল ও গতি'),
-    ('class_11', 'chemistry', 'আবেশী ও অনাবেশী যৌগের পার্থক্য লিখ', 'high', 8, 'রাসায়নিক বন্ধন'),
-    ('class_12', 'physics', 'তড়িৎ ক্ষেত্র ও চুম্বক ক্ষেত্রের সম্পর্ক ব্যাখ্যা কর', 'very_high', 15, 'তড়িৎচুম্বকত্ব'),
-    ('college_year_1', 'calculus', 'Limit and continuity এর সংজ্ঞা দাও', 'high', 10, 'Introduction'),
-]
-
-for q in sample_questions:
-    cursor.execute('''
-        INSERT OR IGNORE INTO questions 
-        (class, subject, question, importance, marks, chapter)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', q)
-
-conn.commit()
-
-# Check count
-cursor.execute('SELECT COUNT(*) FROM questions')
-count = cursor.fetchone()[0]
-print(f'Total questions in database: {count}')
-
-conn.close()
-"
-        
-    - name: Run Smart Study Bot
-      run: |
-        python -c "
-import os
-import asyncio
-import sys
-
-# Add current directory to path
-sys.path.append('.')
-
-try:
-    # Simple bot runner
-    import telegram
-    import schedule
-    import time
-    import sqlite3
-    from datetime import datetime
-    
-    print('🤖 Starting Smart Study Bot...')
-    
-    # Load environment
-    BOT_TOKEN = os.getenv('BOT_TOKEN')
-    CHANNEL_ID = os.getenv('CHANNEL_ID')
-    
-    if not BOT_TOKEN:
-        print('❌ Error: BOT_TOKEN not found')
-        sys.exit(1)
-    
-    print(f'✅ Bot Token loaded')
-    print(f'✅ Channel: {CHANNEL_ID}')
-    
-    # Create a simple post
-    bot = telegram.Bot(token=BOT_TOKEN)
-    
-    async def send_post():
-        print('🔄 Creating post...')
-        current_time = datetime.now().strftime('%d %B, %Y %I:%M %p')
-        
-        post = f'''📚 *Smart Study Notes* 📚
-========================
-
-🎓 *CLASS 11-12 & COLLEGE*
-========================
-
-📖 *Physics:*
-   1. নিউটনের গতির সূত্রগুলো বর্ণনা করুন
-      📚 অধ্যায়: বল ও গতি
-      📝 নম্বর: 10
-      🔥 *১০০% পরীক্ষায় আসবে*
-
-📖 *Chemistry:*
-   1. আবেশী ও অনাবেশী যৌগের পার্থক্য লিখ
-      📚 অধ্যায়: রাসায়নিক বন্ধন
-      📝 নম্বর: 8
-      ⭐ *খুবই গুরুত্বপূর্ণ*
-
-⏰ *পোস্টের সময়:* {current_time}
-
-🤖 *বটের বিশেষত্ব:*
-• স্বয়ংক্রিয় প্রশ্ন পোস্টিং
-• ১০০% পরীক্ষার জন্য গুরুত্বপূর্ণ
-• দৈনিক ৭ বার আপডেট
-
-📌 *চ্যানেলে যুক্ত হন:* @smartstudynotes11
-🤖 *বট:* @smartstudy11bot
-'''
-        
-        try:
-            await bot.send_message(
-                chat_id=CHANNEL_ID,
-                text=post,
-                parse_mode='Markdown',
-                disable_web_page_preview=True
-            )
-            print('✅ Post sent successfully!')
-        except Exception as e:
-            print(f'❌ Error sending post: {str(e)}')
-    
-    # Run once
-    asyncio.run(send_post())
-    
-except Exception as e:
-    print(f'❌ Error: {str(e)}')
-    sys.exit(1)
-"
-        
-    - name: Upload logs
-      if: always()
-      uses: actions/upload-artifact@v4  # Changed from v3 to v4
-      with:
-        name: bot-logs
-        path: |
-          logs/
-        retention-days: 7
-        
-    - name: Check database
-      run: |
-        if [ -f "data/studybots.db" ]; then
-          echo "✅ Database file exists"
-          ls -la data/
-        else
-          echo "❌ Database file not found"
-        fi
+      # Step 2: Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          pip install python-telegram-bot==20.3
+          pip install requests==2.31.0
+          pip install schedule==1.2.0
+          pip install python-dotenv==1.0.0
+      
+      # Step 4: Setup environment
+      - name: Setup environment
+        run: |
+          echo "BOT_TOKEN=${{ secrets.BOT_TOKEN }}" > .env
+          echo "CHANNEL_ID=@smartstudynotes11" >> .env
+          echo "DEBUG=True" >> .env
+          echo "✅ Environment file created"
+      
+      # Step 5: Create data directory
+      - name: Create directories
+        run: |
+          mkdir -p data
+          echo "✅ Directories created"
+      
+      # Step 6: Run the bot
+      - name: Run Smart Study Bot
+        run: |
+          echo "🚀 Starting Smart Study Bot..."
+          python main.py
+          echo "✅ Bot execution completed"
+      
+      # Step 7: Success message
+      - name: Success notification
+        if: success()
+        run: |
+          echo "🎉 Smart Study Bot ran successfully!"
+          echo "📅 Next run times (BDT):"
+          echo "   - 8:00 AM"
+          echo "   - 10:00 AM"
+          echo "   - 12:00 PM"
+          echo "   - 3:00 PM"
+          echo "   - 5:00 PM"
+          echo "   - 7:00 PM"
+          echo "   - 9:00 PM"
+      
+      # Step 8: Failure message
+      - name: Failure notification
+        if: failure()
+        run: |
+          echo "❌ Smart Study Bot failed!"
+          echo "Please check the logs above for errors."
