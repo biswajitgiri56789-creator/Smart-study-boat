@@ -1,0 +1,14 @@
+
+### **2. 📄 requirements.txt**
+```txt
+python-telegram-bot==20.3
+schedule==1.2.0
+requests==2.31.0
+beautifulsoup4==4.12.2
+sqlite3
+python-dotenv==1.0.0
+Flask==2.3.2
+gunicorn==20.1.0
+APScheduler==3.10.4
+pandas==2.0.3
+loguru==0.7.2

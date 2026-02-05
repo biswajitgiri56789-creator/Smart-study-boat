@@ -1,0 +1,44 @@
+{
+  "class_11": {
+    "physics": [
+      {
+        "question": "নিউটনের গতির সূত্রগুলো বর্ণনা করুন",
+        "importance": "very_high",
+        "marks": 10,
+        "chapter": "বল ও গতি"
+      },
+      {
+        "question": "কাজ, শক্তি ও ক্ষমতা বলতে কী বোঝায়?",
+        "importance": "high",
+        "marks": 8,
+        "chapter": "কাজ, শক্তি ও ক্ষমতা"
+      }
+    ],
+    "chemistry": [
+      {
+        "question": "আবেশী ও অনাবেশী যৌগের পার্থক্য লিখ",
+        "importance": "very_high",
+        "marks": 10,
+        "chapter": "রাসায়নিক বন্ধন"
+      }
+    ],
+    "mathematics": [
+      {
+        "question": "দ্বিঘাত সমীকরণের মূল নির্ণয়ের সূত্র লিখ",
+        "importance": "very_high",
+        "marks": 10,
+        "chapter": "বীজগাণিতিক রাশি"
+      }
+    ]
+  },
+  "class_12": {
+    "physics": [
+      {
+        "question": "তড়িৎ ক্ষেত্র ও চুম্বক ক্ষেত্রের মধ্যে সম্পর্ক ব্যাখ্যা কর",
+        "importance": "very_high",
+        "marks": 15,
+        "chapter": "তড়িৎচুম্বকত্ব"
+      }
+    ]
+  }
+}
